@@ -34,6 +34,7 @@ def chunker(bits, chunk_length=8):
         chunked.append(bits[b:b + chunk_length])
     return chunked
 
+
 # To be able to accommodate both our needs of set bit lengths and utilizing the built-in Python functions,
 # as well as being able to conveniently fill words with zeros,
 # we’ll us the below utility function to simply append or prepend a required number of zeros to a list.
@@ -50,29 +51,47 @@ def fillZeros(bits, length=8, endian='LE'):
 
 
 def preprocessMessage(message):
+    # translate message into bits
     bits = translate(message)
+    # message length
     length = len(bits)
+    # get length in bits  of message (64 bit block)
     message_len = [int(b) for b in bin(length)[2:].zfill(64)]
+    # if length smaller than 448 handle block individually otherwise
+    # if exactly 448 then add single 1 and add up to 1024 and if longer than 448
+    # create multiple of 512 - 64 bits for the length at the end of the message (big endian)
     if length < 448:
+        # append single 1
         bits.append(1)
+        # fill zeros little endian wise
         bits = fillZeros(bits, 448, 'LE')
+        # add the 64 bits representing the length of the message
         bits = bits + message_len
+        # return as list
         return [bits]
     elif 448 <= length <= 512:
         bits.append(1)
+        # moves to next message block - total length = 1024
         bits = fillZeros(bits, 1024, 'LE')
+        # replace the last 64 bits of the multiple of 512 with the original message length
         bits[-64:] = message_len
+        # returns it in 512 bit chunks
         return chunker(bits, 512)
     else:
         bits.append(1)
+        # loop until multiple of 512 + 64 bit message_len if message length exceeds 448 bits
         while (len(bits) + 64) % 512 != 0:
             bits.append(0)
+        # add the 64 bits representing the length of the message
         bits = bits + message_len
+        # returns it in 512 bit chunks
         return chunker(bits, 512)
 
 
 def initializer(values):
+    # convert from hex to python binary string (with cut bin indicator ('0b'))
     binaries = [bin(int(v, 16))[2:] for v in values]
+    # convert from python string representation to a list of 32 bit lists
     words = []
     for binary in binaries:
         word = []
